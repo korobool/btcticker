@@ -105,7 +105,7 @@ func (c *Client) writePump() {
 				return
 			}
 			w.Write(message)
-			w.Write(newline)
+			//w.Write(newline)
 
 			if err := w.Close(); err != nil {
 				return

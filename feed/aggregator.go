@@ -26,6 +26,8 @@ type Aggregator struct {
 	deregFeed chan FeedInfo
 	// Force aggreagtor to emit tick
 	ForceTick chan ProductType
+	//
+	wait chan struct{}
 	// Shutdown self
 	Done chan struct{}
 	//
@@ -39,14 +41,15 @@ type Aggregator struct {
 	retryInterval time.Duration
 }
 
-func NewAggregator() (*Aggregator, error) {
+func NewAggregator(done chan struct{}) (*Aggregator, error) {
 	agr := Aggregator{
+		wait:          make(chan struct{}),
 		tickMsgQueue:  make(chan *TickMsg, 32),
 		Tick:          make(chan *AgrTickMsg, 32),
 		regFeed:       make(chan FeedInfo),
 		deregFeed:     make(chan FeedInfo),
 		ForceTick:     make(chan ProductType),
-		Done:          make(chan struct{}),
+		Done:          done,
 		feeds:         make(map[ProductType]map[string]*TickMsg),
 		totalSources:  make(map[ProductType]int),
 		activeSources: make(map[ProductType]int),
@@ -56,6 +59,11 @@ func NewAggregator() (*Aggregator, error) {
 }
 
 func (a *Aggregator) Run(feedNameList []string) {
+
+	defer func() {
+		close(a.Tick)
+		close(a.wait)
+	}()
 
 	a.launchFeedRunners(feedNameList)
 
@@ -72,6 +80,7 @@ func (a *Aggregator) Run(feedNameList []string) {
 			if !shouldExit {
 				shouldExit = true
 			} else if len(a.feeds) == 0 {
+				log.Printf("aggregator: exiting")
 				return
 			}
 		case msg := <-a.tickMsgQueue:
@@ -80,6 +89,10 @@ func (a *Aggregator) Run(feedNameList []string) {
 			}
 		}
 	}
+}
+
+func (a *Aggregator) Wait() {
+	<-a.wait
 }
 
 func (a *Aggregator) launchFeedRunners(feedNameList []string) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/demyan/btcticker/feed"
-	. "github.com/demyan/btcticker/product"
+	"github.com/korobool/btcticker/feed"
+	. "github.com/korobool/btcticker/product"
 )
 
 type Server struct {

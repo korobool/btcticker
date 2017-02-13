@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/demyan/btcticker/feed"
-	"github.com/demyan/btcticker/server"
+	"github.com/korobool/btcticker/feed"
+	"github.com/korobool/btcticker/server"
 )
 
 var addr = ":8080"

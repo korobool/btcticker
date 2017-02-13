@@ -1,7 +1,7 @@
 package feed
 
 import (
-	. "github.com/demyan/btcticker/product"
+	. "github.com/korobool/btcticker/product"
 )
 
 type Feed interface {

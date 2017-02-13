@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	. "github.com/demyan/btcticker/product"
 	"github.com/gorilla/websocket"
+	. "github.com/korobool/btcticker/product"
 )
 
 var (

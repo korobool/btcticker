@@ -1,18 +1,30 @@
 package main
 
 import (
+	//"bufio"
+	"flag"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 
 	"github.com/korobool/btcticker/feed"
 	"github.com/korobool/btcticker/server"
+	"github.com/korobool/btcticker/viewer"
 )
 
-var addr = ":8080"
+func runViewer(addr string, interrupt chan struct{}) {
 
-func main() {
+	log.SetFlags(log.Ldate)
+	log.SetOutput(os.Stderr)
 
-	aggregator, err := feed.NewAggregator()
+	//viewer.WsConnect(addr, bufio.NewWriter(os.Stdout), interrupt)
+	viewer.WsConnect(addr, os.Stdout, interrupt)
+}
+
+func runServer(addr string, interrupt chan struct{}) {
+
+	aggregator, err := feed.NewAggregator(interrupt)
 	if err != nil {
 		log.Fatalf("failed: %s", err)
 	}
@@ -20,9 +32,39 @@ func main() {
 
 	server := server.New(aggregator)
 	go server.Run()
+
 	server.Serve()
 
+	go func() {
+		<-interrupt
+		aggregator.Wait()
+		server.Wait()
+		os.Exit(1)
+	}()
+
 	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Fatal("ListenAndServe: %v", err)
+	}
+}
+
+func main() {
+	serverMode := flag.Bool("server", false, "run in server mode")
+	addr := flag.String("addr", "localhost:29999", "address to connect/bind")
+
+	flag.Parse()
+
+	sysInterrupt := make(chan os.Signal, 1)
+	signal.Notify(sysInterrupt, os.Interrupt)
+	interrupt := make(chan struct{})
+
+	go func() {
+		<-sysInterrupt
+		close(interrupt)
+	}()
+
+	if *serverMode {
+		runServer(*addr, interrupt)
+	} else {
+		runViewer(*addr, interrupt)
 	}
 }

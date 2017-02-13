@@ -10,6 +10,8 @@ import (
 
 type Server struct {
 	//
+	wait chan struct{}
+	//
 	aggregator *feed.Aggregator
 	// Registered clients.
 	clients map[*Client]struct{}
@@ -25,6 +27,7 @@ type Server struct {
 
 func New(aggr *feed.Aggregator) *Server {
 	return &Server{
+		wait:       make(chan struct{}),
 		aggregator: aggr,
 		register:   make(chan *Client),
 		deregister: make(chan *Client),
@@ -34,6 +37,10 @@ func New(aggr *feed.Aggregator) *Server {
 }
 
 func (s *Server) Run() {
+	defer func() {
+		close(s.wait)
+	}()
+
 	for {
 		select {
 		case client := <-s.register:
@@ -51,7 +58,13 @@ func (s *Server) Run() {
 				delete(s.clients, client)
 				close(client.send)
 			}
-		case message := <-s.aggregator.Tick:
+		case message, ok := <-s.aggregator.Tick:
+			if !ok {
+				for client := range s.clients {
+					close(client.send)
+				}
+				return
+			}
 			if s.updateLastState(message) {
 				for client := range s.clients {
 					if !s.pushTickerToClient(client, s.cachedTick) {
@@ -68,6 +81,10 @@ func (s *Server) Serve() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(s, w, r)
 	})
+}
+
+func (s *Server) Wait() {
+	<-s.wait
 }
 
 func (s *Server) getProductState(product ProductType) (float64, int, int) {

@@ -101,8 +101,8 @@ func (c *WsClient) pull() {
 				log.Printf("error: %v", err)
 				return
 			}
-			c.out.Write([]byte("\r"))
 			c.out.Write(msg)
+			c.out.Write([]byte("\r"))
 			//if _, err := io.Copy(c.out, r); err != nil {
 			//	log.Printf("error: %v", err)
 			//	return

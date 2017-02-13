@@ -1,1 +1,1 @@
-# btcticker
+* http://github.com/gorilla/websocket

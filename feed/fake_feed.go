@@ -45,7 +45,7 @@ func (f *FakeFeed) Run() error {
 					TsSell:   time.Now().Unix(),
 					TsBuy:    time.Now().Unix() - 1,
 					AskPrice: 1.05,
-					BidPrice: 1.06,
+					BidPrice: 1.10,
 				}
 			case <-f.interrupt:
 				log.Printf("fake push interrupted")

@@ -26,6 +26,7 @@ func init() {
 		{ProductBtcUsd, "gdax"}:        NewGdaxWebSocketFeed,
 		{ProductBtcUsd, "btce"}:        NewBtceFeed,
 		{ProductEurUsd, "fixer"}:       NewFixerFeed,
+		{ProductEurUsd, "appspot"}:     NewAppspotFeed,
 		{ProductEurUsd, "fake_eurusd"}: NewFakeEurUsdFeed,
 	}
 }

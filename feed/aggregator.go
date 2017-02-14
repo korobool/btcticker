@@ -24,29 +24,38 @@ func (t AgrTickMsg) String() string {
 	return fmt.Sprintf("%s[%d/%d] ask:%.4f bid:%.4f trade_s:%.4f/%d trade_b:%.4f/%d", t.Product, t.ActiveSources, t.TotalSources, t.AskPrice, t.BidPrice, t.PriceSell, t.TsSell, t.PriceBuy, t.TsBuy)
 }
 
+// Aggregator mananges starting/stopping feed source listeners/pollers.
+// Selects best prices from active sources per each product and sends
+// aggregated message to upstream.
 type Aggregator struct {
+	// Map of the last message for each "product-feed" pair
 	feeds map[ProductType]map[string]*TickMsg
-	// Register feed source
+	// Feed must use regFeed channel to register itself
 	regFeed chan FeedInfo
-	// Deregister feed source
+	// Feed must use deregFeed channel to deregister itself
 	deregFeed chan FeedInfo
-	// Force aggreagtor to emit tick
+	// Writing to ForecTick forces aggreagtor to emit tick
+	// for specified product
 	ForceTick chan ProductType
-	//
+	// wait channel will be closed when aggregator can be destroyed safelly
 	wait chan struct{}
-	// Shutdown self
+	// Aggregator starts gracefull shutdown when Done channel is closed
 	Done chan struct{}
-	//
+	// Tick is outbound queue of aggregated messages
 	Tick chan *AgrTickMsg
-	// Inbound messages from the feeds
+	// Inbound queue of messages from the feeds
 	tickMsgQueue chan *TickMsg
-	//
-	totalSources  map[ProductType]int
+	// Number of enabled feed sources per product
+	totalSources map[ProductType]int
+	// Current number of active feed sources per product
 	activeSources map[ProductType]int
-	// Feed start retry interval
+	// Feed restart retry interval
 	retryInterval time.Duration
 }
 
+// NewAggregator creates new instance of Aggregator.
+// When passed done channel is closed aggregator will start
+// graceful shutdown.
 func NewAggregator(done chan struct{}) (*Aggregator, error) {
 	agr := Aggregator{
 		wait:          make(chan struct{}),
@@ -64,6 +73,13 @@ func NewAggregator(done chan struct{}) (*Aggregator, error) {
 	return &agr, nil
 }
 
+// Run() starts each feed in a separate goroutine (feed runner).
+// Listens channels to:
+// - external interrupt
+// - register/deregister feeds
+// - update last message for each "product-feed" pair
+// - based on updated last message emits new aggregated message
+// - emit aggregated tick message by force
 func (a *Aggregator) Run(feedNameList []string) {
 
 	defer func() {
@@ -101,6 +117,9 @@ func (a *Aggregator) Wait() {
 	<-a.wait
 }
 
+// launchFeedRunners() initialises instance for each feed name
+// from []feedNameList slice. If []feedNameList is nil
+// all feeds from FeedRegistry will be started.
 func (a *Aggregator) launchFeedRunners(feedNameList []string) {
 	if len(feedNameList) == 0 {
 		for info, feedConstructor := range FeedRegistry {
@@ -158,6 +177,9 @@ func (a *Aggregator) updateFeedTick(msg *TickMsg) bool {
 	return false
 }
 
+// emitTick() calculates best bid(maximum) price, best ask(minimum)
+// price and current active feed sources for specified product.
+// Then emits AgrTickMsg message.
 func (a *Aggregator) emitTick(product ProductType) *AgrTickMsg {
 
 	if total, ok := a.totalSources[product]; ok {
@@ -199,6 +221,8 @@ func (a *Aggregator) emitTick(product ProductType) *AgrTickMsg {
 	return nil
 }
 
+// runFeed() runs feed and restarts it when feed fails for some reason.
+// Feeds are restarted with retryInterval delay.
 func (a *Aggregator) runFeed(constructor FeedConstructor, retryInterval time.Duration) {
 
 	retryWait := func() {

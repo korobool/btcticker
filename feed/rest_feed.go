@@ -9,16 +9,20 @@ import (
 	"time"
 )
 
+// RestFeed is a generic base 'class' for basic http REST-polling feed sources
 type RestFeed struct {
 	BaseFeed
-	client    *http.Client
+	client *http.Client
+	// Closing interrupt channel starts gracefull shutdown
 	interrupt chan struct{}
-	wait      chan struct{}
-
+	// wait channel will be closed when feed can be destroyed safelly
+	wait chan struct{}
+	// Handler which will be invoked on each poll round
 	pollHandler func() (*TickMsg, error)
-
+	// Interval for requesting remote API
 	pollInterval time.Duration
-	reqTimeout   time.Duration
+	// Timout for http request
+	reqTimeout time.Duration
 }
 
 func NewRestFeed(info FeedInfo, agr *Aggregator, pollInterval, reqTimeout time.Duration) (*RestFeed, error) {
@@ -98,10 +102,12 @@ func (f *RestFeed) GetName() string {
 	return f.Info.Name
 }
 
+// SetPollHandler() sets handler which will be invoked on each polling round
 func (f *RestFeed) SetPollHandler(h func() (*TickMsg, error)) {
 	f.pollHandler = h
 }
 
+// requestGet() is a helper for requesting remote API (http GET)
 func (f *RestFeed) requestGet(url string, jsonData interface{}, timeout time.Duration) error {
 
 	ctx, _ := context.WithTimeout(context.TODO(), timeout)

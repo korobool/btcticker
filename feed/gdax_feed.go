@@ -19,7 +19,7 @@ var (
 	gdaxRestBookUrl  = "https://api.gdax.com/products/BTC-USD/book?level=3"
 )
 
-// Aggregated message stucture with only important fields
+// Aggregated GDAX Websocket API message stucture with only important fields
 type MsgGdax struct {
 	Type      string     `json:"type"`                 // "match" | "error" | "heartbeat"
 	Sequence  *int64     `json:"sequence,omitempty"`   // 50
@@ -32,6 +32,7 @@ type MsgGdax struct {
 	Message   *string    `json:"message,omitempty"`    // "error message"
 }
 
+// REST order book data
 type MsgGdaxOrderBook struct {
 	Asks     [][]string `json:"asks"`
 	Bids     [][]string `json:"bids"`
@@ -74,10 +75,12 @@ func (b *OrderBook) DeleteAsk(orderId string) bool {
 	return ok
 }
 
-// Gdax websocket feed source
+// GDAX websocket feed source
 type GdaxWebSocketFeed struct {
-	Info          FeedInfo
-	interrupt     chan struct{}
+	Info FeedInfo
+	// signal for external interrupt
+	interrupt chan struct{}
+	// wait channel will be closed when instance ready to be destroyed safelly
 	wait          chan struct{}
 	initOrderBook chan struct{}
 	pendingMsgs   [][]byte
@@ -86,18 +89,30 @@ type GdaxWebSocketFeed struct {
 	aggregator *Aggregator
 
 	orderBook *OrderBook
-	sequence  int64
-	tsSell    int64
-	tsBuy     int64
+	// last message sequence number
+	// (messages with older sequence number must be ignored)
+	sequence int64
+	// last sell trade timestamp
+	tsSell int64
+	// last buy trade timestamp
+	tsBuy int64
+	// last sell trade price
 	priceSell float64
-	priceBuy  float64
-	askPrice  float64
-	bidPrice  float64
+	// last buy trade price
+	priceBuy float64
+	// best ask price (min)
+	askPrice float64
+	// best bid price (max)
+	bidPrice float64
 
-	conn         *websocket.Conn
-	TimeoutRead  time.Duration
+	conn *websocket.Conn
+
+	// deadline timeout for websocket read operations
+	TimeoutRead time.Duration
+	// deadline timeout for websocket write operations
 	TimeoutWrite time.Duration
-	pingPeriod   time.Duration
+	// period to send websocket ping messages
+	pingPeriod time.Duration
 }
 
 //func NewGdaxWebSocketFeed(agr *Aggregator, wsUrl string, wsHeaders http.Header) (*GdaxWebSocketFeed, error) {
@@ -127,12 +142,14 @@ func NewGdaxWebSocketFeed(agr *Aggregator) (Feed, error) {
 	}, nil
 }
 
+// Run registers feed source with aggreator.
+// Starts pull and push goroutines in background.
 func (f *GdaxWebSocketFeed) Run() error {
 	f.aggregator.regFeed <- f.Info
 
 	f.wg.Add(2)
-	// spawn goroutine which will close wait channel
-	// signal that both recv/send goroutines are stopped
+	// Spawn goroutine which will close wait channel
+	// (signal that both recv/send goroutines were stopped)
 	go func() {
 		f.wg.Wait()
 		f.aggregator.deregFeed <- f.Info
@@ -144,6 +161,7 @@ func (f *GdaxWebSocketFeed) Run() error {
 	return nil
 }
 
+// Send "subscribe" message
 func (f *GdaxWebSocketFeed) Subscribe() error {
 	// https://docs.gdax.com/?python#subscribe
 	//{
@@ -195,12 +213,16 @@ func (f *GdaxWebSocketFeed) enableHeartbeat() {
 	return
 }
 
+// Pull goroutine handels inbound messages from websocket.
+// It stores inbound messages in temporary queue till orderbook will be initialised.
+// When orderbook initialised messages wil be processed and written to tickMsgQueue.
 func (f *GdaxWebSocketFeed) pull() {
 	defer func() {
 		f.Close()
 		f.wg.Done()
 	}()
 
+	// Setting pong handler will expand read deadline on each pong.
 	deadlineHandler := func(string) error {
 		deadline := time.Now().Add(f.TimeoutRead)
 		return f.conn.SetReadDeadline(deadline)
@@ -214,15 +236,16 @@ func (f *GdaxWebSocketFeed) pull() {
 		msgType, msg, err := f.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
-				log.Printf("pull error: %v", err)
+				log.Printf("gdax: pull error: %v", err)
 			} else {
-				log.Printf("pull gone: %v", err)
+				log.Printf("gdax: pull gone: %v", err)
 			}
 			return
 		}
 
 		if msgType == websocket.TextMessage {
 			select {
+			// initOrderBook channel is closed whan orderbook is initialised.
 			case <-f.initOrderBook:
 			default:
 				f.pendingMsgs = append(f.pendingMsgs, msg)
@@ -230,13 +253,15 @@ func (f *GdaxWebSocketFeed) pull() {
 			}
 
 			if len(f.pendingMsgs) > 0 {
-				log.Printf("loading pending: %d", len(f.pendingMsgs))
+				log.Printf("gdax: loading pending: %d", len(f.pendingMsgs))
 
+				// Processing all pending messages
 				for _, pendingMsg := range f.pendingMsgs {
 					feedMsg, err := f.processMsg(pendingMsg)
 					if err != nil {
-						log.Printf("processMsg: %v", err)
+						log.Printf("gdax: processMsg: %v", err)
 					} else if feedMsg != nil {
+						// Sending message with updated 'tick'
 						f.aggregator.tickMsgQueue <- feedMsg
 					}
 				}
@@ -245,15 +270,18 @@ func (f *GdaxWebSocketFeed) pull() {
 
 			feedMsg, err := f.processMsg(msg)
 			if err != nil {
-				log.Printf("processMsg: %v", err)
+				log.Printf("gdax: processMsg: %v", err)
 
 			} else if feedMsg != nil {
+				// Sending message with updated 'tick'
 				f.aggregator.tickMsgQueue <- feedMsg
 			}
 		}
 	}
 }
 
+// Push goroutine handels outbound messages to websocket.
+// Send ping messages with pingPeriod period.
 func (f *GdaxWebSocketFeed) push() {
 	ticker := time.NewTicker(f.pingPeriod)
 
@@ -264,7 +292,7 @@ func (f *GdaxWebSocketFeed) push() {
 	}()
 
 	if err := f.Subscribe(); err != nil {
-		log.Printf("push failed to subscribe: %v", err)
+		log.Printf("gdax: push failed to subscribe: %v", err)
 		return
 	}
 
@@ -274,16 +302,17 @@ func (f *GdaxWebSocketFeed) push() {
 			f.conn.SetWriteDeadline(time.Now().Add(f.TimeoutWrite))
 			err := f.conn.WriteMessage(websocket.PingMessage, []byte{})
 			if err != nil {
-				log.Printf("push error: %v", err)
+				log.Printf("gdax: push error: %v", err)
 				return
 			}
 		case <-f.interrupt:
-			log.Printf("push interrupted")
+			log.Printf("gdax: push interrupted")
 			return
 		}
 	}
 }
 
+// Fetch process current orderbook state via REST API.
 func (f *GdaxWebSocketFeed) getOrderBook() error {
 	req, err := http.NewRequest("GET", gdaxRestBookUrl, nil)
 	if err != nil {
@@ -309,6 +338,8 @@ func (f *GdaxWebSocketFeed) getOrderBook() error {
 	return nil
 }
 
+// Process initial orderbook.
+// Look for min ask price and max bid price.
 func (f *GdaxWebSocketFeed) processOrderBook(orderBookMsg *MsgGdaxOrderBook) {
 
 	log.Printf("gdax order book: %d/%d (asks/bids)",
@@ -343,12 +374,13 @@ func (f *GdaxWebSocketFeed) processOrderBook(orderBookMsg *MsgGdaxOrderBook) {
 			}
 		}
 	}
-
+	// Store state of current best ask/bid and message sequence.
 	f.sequence = orderBookMsg.Sequence
 	f.askPrice = askPrice
 	f.bidPrice = bidPrice
 }
 
+// Recalculate best ask/bid prices (min/max) on orderbook update.
 func (f *GdaxWebSocketFeed) recalcBestAskBid() {
 	var askPrice, bidPrice float64
 
@@ -365,6 +397,14 @@ func (f *GdaxWebSocketFeed) recalcBestAskBid() {
 	f.askPrice, f.bidPrice = askPrice, bidPrice
 }
 
+// Processes messages from websocket stream.
+// Handles "error", "done", "received" and "match" messages:
+// - "received" - order added to orderbook
+// - "match" - trade event (sell or buy)
+// - "done" - order removed from orderbook
+// Updates orderbook based on "received" and "done" messages.
+// Stores last sell/buy price and timestamp based on "match" message.
+// Builds new TickMsg if orderbook or last sell/buy price was updated.
 func (f *GdaxWebSocketFeed) processMsg(msgData []byte) (*TickMsg, error) {
 
 	var msg MsgGdax
@@ -418,9 +458,8 @@ func (f *GdaxWebSocketFeed) processMsg(msgData []byte) (*TickMsg, error) {
 
 		} else if msg.Type == "match" && msg.Price != nil {
 
-			log.Printf("match: %d %s %s %v",
-				*msg.Sequence, *msg.Side,
-				*msg.Price, *msg.Time)
+			log.Printf("gdax: match: %d %s %s %v",
+				*msg.Sequence, *msg.Side, *msg.Price, *msg.Time)
 
 			if *msg.Side == "sell" && ts >= f.tsSell {
 				f.tsSell = ts

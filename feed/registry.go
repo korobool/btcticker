@@ -4,6 +4,7 @@ import (
 	. "github.com/korobool/btcticker/product"
 )
 
+// The registry of all supported feedsources
 var FeedRegistry map[FeedInfo]FeedConstructor
 
 func init() {

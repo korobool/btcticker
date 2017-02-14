@@ -8,10 +8,14 @@ import (
 	. "github.com/korobool/btcticker/product"
 )
 
+// Server operates with websocket clients (viewers).
+// Listens for aggregated messages from aggreagtor,
+// calculates values fot ticker string an build it.
+// Broadcasts updated ticker string to all clients.
 type Server struct {
-	//
+	// wait channel will be closed when instance ready to be destroyed safelly
 	wait chan struct{}
-	//
+	// aggregator
 	aggregator *feed.Aggregator
 	// Registered clients.
 	clients map[*Client]struct{}
@@ -19,12 +23,13 @@ type Server struct {
 	register chan *Client
 	// Deregister requests from clients.
 	deregister chan *Client
-	//
+	// Last prcies/timestamps per product
 	lastState map[ProductType]*feed.AgrTickMsg
-	//
+	// Cached ticker string
 	cachedTick string
 }
 
+// Instantiate Server
 func New(aggr *feed.Aggregator) *Server {
 	return &Server{
 		wait:       make(chan struct{}),
@@ -36,6 +41,10 @@ func New(aggr *feed.Aggregator) *Server {
 	}
 }
 
+// Run registers/deregisters websocket clients.
+// Listens for tick messages from aggregator.
+// Calculates and updates ticker string.
+// Pushes to websocket updated ticker string.
 func (s *Server) Run() {
 	defer func() {
 		close(s.wait)
@@ -112,16 +121,17 @@ func (s *Server) updateLastState(msg *feed.AgrTickMsg) bool {
 	return false
 }
 
+// Builds output ticker string in format:
+// BTC/USD: 600   EUR/USD: 1.05   BTC/EUR: 550 Active sources: BTC/USD (3 of 3)  EUR/USD (2 of 3)
 func (s *Server) buildTickerString() string {
 
 	strTick := ""
 
 	if priceBtcUsd, actBtcUsd, totBtcUsd := s.getProductState(ProductBtcUsd); priceBtcUsd > 0 {
 		if priceEurUsd, actEurUsd, totEurUsd := s.getProductState(ProductEurUsd); priceEurUsd > 0 {
+			// NOTE: Calulate BTC/EUR
 			priceBtcEur := priceBtcUsd / priceEurUsd
 
-			// Building output string like
-			// BTC/USD: 600   EUR/USD: 1.05   BTC/EUR: 550 Active sources: BTC/USD (3 of 3)  EUR/USD (2 of 3)
 			strPrice := fmt.Sprintf("%s: %.2f\t%s: %.2f\t%s: %.2f",
 				ProductBtcUsd, priceBtcUsd,
 				ProductEurUsd, priceEurUsd,

@@ -21,8 +21,8 @@ Currently supported sources:
 `go run main.go [-addr <address:port>]`
 
 #### TODO
-- [] add config parsing (viper+cobra?)
-- [] improve documentation
-- [] make comments godoc-friedly
-- [] add new feed sources
-- [] tests
+- [ ] add config parsing (viper+cobra?)
+- [ ] improve documentation
+- [ ] make comments godoc-friedly
+- [ ] add new feed sources
+- [ ] tests

@@ -9,7 +9,7 @@ Currently supported sources:
 * [rate-exchange-1.appspot.com] (http://rate-exchange-1.appspot.com/) (EUR/USD)
 
 ### Implementation
-- client/server mode using [Websocket] (http://github.com/gorilla/websocket)
+- client/server mode using [Websockets] (http://github.com/gorilla/websocket)
 
 ### Installation
 `go get github.com/korobool/btcticker`
@@ -19,3 +19,10 @@ Currently supported sources:
 
 ### Attach viewer
 `go run main.go [-addr <address:port>]`
+
+#### TODO
+- [] add config parsing (viper+cobra?)
+- [] improve documentation
+- [] make comments godoc-friedly
+- [] add new feed sources
+- [] tests

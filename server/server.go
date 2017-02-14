@@ -10,7 +10,7 @@ import (
 
 // Server operates with websocket clients (viewers).
 // Listens for aggregated messages from aggreagtor,
-// calculates values fot ticker string an build it.
+// calculates values for ticker string an build it.
 // Broadcasts updated ticker string to all clients.
 type Server struct {
 	// wait channel will be closed when instance ready to be destroyed safelly

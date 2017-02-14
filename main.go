@@ -28,7 +28,8 @@ func runServer(addr string, interrupt chan struct{}) {
 	if err != nil {
 		log.Fatalf("failed: %s", err)
 	}
-	go aggregator.Run([]string{"gdax", "btce", "fixe", "fake_eurusd"})
+	//go aggregator.Run([]string{"gdax", "btce", "fixer", "appspot", "fake_eurusd"})
+	go aggregator.Run(nil)
 
 	server := server.New(aggregator)
 	go server.Run()

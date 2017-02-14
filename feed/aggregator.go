@@ -96,15 +96,22 @@ func (a *Aggregator) Wait() {
 }
 
 func (a *Aggregator) launchFeedRunners(feedNameList []string) {
-	revRegistry := make(map[string]FeedInfo)
-	for info, _ := range FeedRegistry {
-		revRegistry[info.Name] = info
-	}
-	for _, feedName := range feedNameList {
-		if info, ok := revRegistry[feedName]; ok {
-			if feedConstructor, ok := FeedRegistry[info]; ok {
-				a.totalSources[info.Product] += 1
-				go a.runFeed(feedConstructor, a.retryInterval)
+	if len(feedNameList) == 0 {
+		for info, feedConstructor := range FeedRegistry {
+			a.totalSources[info.Product] += 1
+			go a.runFeed(feedConstructor, a.retryInterval)
+		}
+	} else {
+		revRegistry := make(map[string]FeedInfo)
+		for info, _ := range FeedRegistry {
+			revRegistry[info.Name] = info
+		}
+		for _, feedName := range feedNameList {
+			if info, ok := revRegistry[feedName]; ok {
+				if feedConstructor, ok := FeedRegistry[info]; ok {
+					a.totalSources[info.Product] += 1
+					go a.runFeed(feedConstructor, a.retryInterval)
+				}
 			}
 		}
 	}

@@ -24,6 +24,7 @@ type FeedInfo struct {
 func init() {
 	FeedRegistry = map[FeedInfo]FeedConstructor{
 		{ProductBtcUsd, "gdax"}:        NewGdaxWebSocketFeed,
+		{ProductBtcUsd, "btce"}:        NewBtceFeed,
 		{ProductEurUsd, "fixer"}:       NewFixerFeed,
 		{ProductEurUsd, "fake_eurusd"}: NewFakeEurUsdFeed,
 	}

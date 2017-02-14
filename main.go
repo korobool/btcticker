@@ -28,7 +28,7 @@ func runServer(addr string, interrupt chan struct{}) {
 	if err != nil {
 		log.Fatalf("failed: %s", err)
 	}
-	go aggregator.Run([]string{"gdax", "fake_eurusd", "fixer"})
+	go aggregator.Run([]string{"gdax", "btce", "fixe", "fake_eurusd"})
 
 	server := server.New(aggregator)
 	go server.Run()
@@ -43,7 +43,7 @@ func runServer(addr string, interrupt chan struct{}) {
 	}()
 
 	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatal("ListenAndServe: %v", err)
+		log.Fatalf("ListenAndServe: %v", err)
 	}
 }
 

@@ -14,21 +14,9 @@ type Feed interface {
 
 type FeedConstructor func(*Aggregator) (Feed, error)
 
-var FeedRegistry map[FeedInfo]FeedConstructor
-
 type FeedInfo struct {
 	Product ProductType
 	Name    string
-}
-
-func init() {
-	FeedRegistry = map[FeedInfo]FeedConstructor{
-		{ProductBtcUsd, "gdax"}:        NewGdaxWebSocketFeed,
-		{ProductBtcUsd, "btce"}:        NewBtceFeed,
-		{ProductEurUsd, "fixer"}:       NewFixerFeed,
-		{ProductEurUsd, "appspot"}:     NewAppspotFeed,
-		{ProductEurUsd, "fake_eurusd"}: NewFakeEurUsdFeed,
-	}
 }
 
 type TickMsg struct {

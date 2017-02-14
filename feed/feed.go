@@ -1,6 +1,8 @@
 package feed
 
 import (
+	"fmt"
+
 	. "github.com/korobool/btcticker/product"
 )
 
@@ -19,6 +21,10 @@ type FeedInfo struct {
 	Name    string
 }
 
+func (i FeedInfo) String() string {
+	return fmt.Sprintf("%s[%s]", i.Name, i.Product)
+}
+
 type TickMsg struct {
 	Info      FeedInfo
 	PriceSell float64
@@ -28,6 +34,11 @@ type TickMsg struct {
 	TsSell    int64
 	TsBuy     int64
 	Ts        int64
+}
+
+func (t TickMsg) String() string {
+	return fmt.Sprintf("%s %d ask:%.4f bid:%.4f trade_s:%.4f/%d trade_b:%.4f/%d",
+		t.Info, t.Ts, t.AskPrice, t.BidPrice, t.PriceSell, t.TsSell, t.PriceBuy, t.TsBuy)
 }
 
 type BaseFeed struct {

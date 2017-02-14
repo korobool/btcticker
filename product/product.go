@@ -9,8 +9,8 @@ const (
 	ProductEurUsd
 )
 
-func ProductToString(product ProductType) string {
-	switch product {
+func (p ProductType) String() string {
+	switch p {
 	case ProductBtcUsd:
 		return "BTC/USD"
 	case ProductBtcEur:

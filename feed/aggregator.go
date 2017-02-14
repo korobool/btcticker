@@ -1,9 +1,11 @@
 package feed
 
 import (
-	. "github.com/korobool/btcticker/product"
+	"fmt"
 	"log"
 	"time"
+
+	. "github.com/korobool/btcticker/product"
 )
 
 type AgrTickMsg struct {
@@ -16,6 +18,10 @@ type AgrTickMsg struct {
 	BidPrice      float64
 	ActiveSources int
 	TotalSources  int
+}
+
+func (t AgrTickMsg) String() string {
+	return fmt.Sprintf("%s[%d/%d] ask:%.4f bid:%.4f trade_s:%.4f/%d trade_b:%.4f/%d", t.Product, t.ActiveSources, t.TotalSources, t.AskPrice, t.BidPrice, t.PriceSell, t.TsSell, t.PriceBuy, t.TsBuy)
 }
 
 type Aggregator struct {
@@ -182,7 +188,7 @@ func (a *Aggregator) emitTick(product ProductType) *AgrTickMsg {
 					TotalSources:  total,
 				}
 
-				log.Printf("emitTick: %v", agrMsg)
+				log.Printf("emitTick: %v", *agrMsg)
 
 				a.Tick <- agrMsg
 

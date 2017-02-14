@@ -123,17 +123,15 @@ func (s *Server) buildTickerString() string {
 			// Building output string like
 			// BTC/USD: 600   EUR/USD: 1.05   BTC/EUR: 550 Active sources: BTC/USD (3 of 3)  EUR/USD (2 of 3)
 			strPrice := fmt.Sprintf("%s: %.2f\t%s: %.2f\t%s: %.2f",
-				ProductToString(ProductBtcUsd), priceBtcUsd,
-				ProductToString(ProductEurUsd), priceEurUsd,
-				ProductToString(ProductBtcEur), priceBtcEur,
+				ProductBtcUsd, priceBtcUsd,
+				ProductEurUsd, priceEurUsd,
+				ProductBtcEur, priceBtcEur,
 			)
 			strSrcBtc := fmt.Sprintf("%s (%d of %d)",
-				ProductToString(ProductBtcUsd),
-				actBtcUsd, totBtcUsd,
+				ProductBtcUsd, actBtcUsd, totBtcUsd,
 			)
 			strSrcEur := fmt.Sprintf("%s (%d of %d)",
-				ProductToString(ProductEurUsd),
-				actEurUsd, totEurUsd,
+				ProductEurUsd, actEurUsd, totEurUsd,
 			)
 			strTick = fmt.Sprintf("%s Active sources: %s %s", strPrice, strSrcBtc, strSrcEur)
 		}

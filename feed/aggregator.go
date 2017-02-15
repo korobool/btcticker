@@ -210,7 +210,7 @@ func (a *Aggregator) emitTick(product ProductType) *AgrTickMsg {
 					TotalSources:  total,
 				}
 
-				log.Printf("emitTick: %v", *agrMsg)
+				// log.Printf("emitTick: %v", *agrMsg)
 
 				a.Tick <- agrMsg
 
